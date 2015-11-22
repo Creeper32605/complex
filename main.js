@@ -415,6 +415,16 @@
 		}, 1000);
 	};
 
+	// reset "everything" to zero when Reset is pressed
+	document.querySelector('#resetb').addEventListener('click', function() {
+		rootGrid.animate(0, 0, 0, 1, 0);
+		current.real = 0;
+		current.imaginary = 0;
+		currentPoint.x = 0;
+		currentPoint.y = 0;
+		rootGrid.animate(0, 0, 0, 1, 1);
+		renderOutput();
+	});
 
 	let operators = ['+', '-', '*', '/'];
 	let operatorMap = {
@@ -465,17 +475,6 @@
 				currentOperator = '';
 			}
 		}
-		renderInput();
-	});
-
-	// reset "everything" to zero when Reset is pressed
-	document.querySelector('#resetb').addEventListener('click', function() {
-		rootGrid.animate(0, 0, 0, 1, 0);
-		current.real = 0;
-		current.imaginary = 0;
-		currentPoint.x = 0;
-		currentPoint.y = 0;
-		rootGrid.animate(0, 0, 0, 1, 1);
 		renderInput();
 	});
 }

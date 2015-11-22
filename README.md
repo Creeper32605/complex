@@ -1,6 +1,8 @@
 # complex
 visualises simple arithmetics with complex numbers
 
+![Screenshot](http://i.imgur.com/ukjvuLa.png)
+
 Currently supports addition, subtraction, multiplication and division.
 
 ## Usage

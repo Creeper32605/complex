@@ -442,7 +442,7 @@
 	document.addEventListener('keypress', function(e) {
 		if (!e.key) e.key = String.fromCharCode(e.which);
 		if (operators.indexOf(e.key) > -1) {
-			if (currentOperator) {
+			if (currentOperator && curentInput) {
 				let num = ComplexNumber.parse(currentInput);
 				applyInput(currentOperator, num);
 				currentOperator = '';
@@ -461,7 +461,7 @@
 		renderInput();
 	});
 	document.addEventListener('keydown', function(e) {
-		if (e.which == 13) {
+		if (e.which == 13 && currentInput) {
 			e.preventDefault();
 			let num = ComplexNumber.parse(currentInput);
 			applyInput(currentOperator, num);

@@ -376,6 +376,7 @@
 	renderOutput();
 	let applyInput = function(operator, number) {
 		opG.push(new Grid(true));
+		rootGrid.animate(null, null, null, null, 0);
 		let w = opG.length - 1;
 		opG[w].animate(0, 0, 0, 1, 1);
 		opG[w].addPoint(new GridPoint(currentPoint.x, currentPoint.y));
@@ -404,6 +405,7 @@
 		clearTimeout(cpV);
 		cpV = setTimeout(() => {
 			currentPoint.v = true;
+			rootGrid.animate(null, null, null, null, 1);
 		}, 1000);
 		// remove the grid after a second
 		setTimeout(() => {

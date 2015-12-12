@@ -115,13 +115,10 @@
 		if (ds >= 0.1) {
 			// draw unit lines if the grid isn't too small
 
-			// unit lines will resemble normal distribution histographs
-			let sq2p = Math.min((1 / ds), 1) * scale * 1 / (0.8 * Math.sqrt(2 * Math.PI));
-			let id3s = (1 / ds) * 3 * size / scale;
-
 			for (let x = Math.ceil(limitnx); x < limitpx; x += inc) {
 				ctx.strokeStyle = gMC;
-				let usize = sq2p * Math.pow(Math.E, -(Math.pow(x + dx, 2)/ id3s));
+				let usize = (50 / ds) * Math.pow(2, -(Math.pow(ds * 8 * (x + dx), 2)) / size);
+				if (x + dx == 0) usize = 0;
 				ctx.beginPath();
 				ctx.moveTo(x * scale, -usize);
 				ctx.lineTo(x * scale, usize);
@@ -129,7 +126,8 @@
 			}
 			for (let y = Math.ceil(limitny); y < limitpy; y += inc) {
 				ctx.strokeStyle = gMC;
-				let usize = sq2p * Math.pow(Math.E, -(Math.pow(y + dy, 2)/ id3s));
+				let usize = (50 / ds) * Math.pow(2, -(Math.pow(ds * 8 * (y + dy), 2)) / size);
+				if (y + dy == 0) usize = 0;
 				ctx.beginPath();
 				ctx.moveTo(-usize, y * scale);
 				ctx.lineTo(usize, y * scale);

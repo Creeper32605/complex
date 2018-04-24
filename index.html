@@ -1,20 +1,24 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
-	<head>
-		<meta charset="UTF-8">
-		<title>Complex</title>
-		<link rel="stylesheet" href="katex/katex.min.css">
-		<link rel="stylesheet" href="main.css">
-		<script src="katex/katex.min.js"></script>
-		<script src="katex/contrib/auto-render.min.js"></script>
-	</head>
-	<body>
-		<div id="controls">
-			<button id="resetb">Reset</button>
-			<div id="input"></div>
-		</div>
-		<div id="result"></div>
-		<canvas id="complex-canvas"></canvas>
-		<script src="main.js"></script>
-	</body>
+  <head>
+    <meta charset="UTF-8" />
+    <title>Complex</title>
+    <link rel="stylesheet" href="main.css" />
+  </head>
+  <body>
+    <div id="controls">
+      <button id="add-btn">+</button>
+      <button id="sub-btn">-</button>
+      <button id="mul-btn">×</button>
+      <button id="div-btn">÷</button>
+      <div id="zoom">
+        <span id="zoom-text">Zoom</span>
+        <button id="zoomi-btn">+</button>
+        <button id="zoomo-btn">-</button>
+      </div>
+    </div>
+    <canvas id="complex-canvas"></canvas>
+    <script src="complex.js"></script>
+    <script src="main.js"></script>
+  </body>
 </html>

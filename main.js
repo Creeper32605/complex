@@ -1,480 +1,487 @@
-'use strict';
-{
-	let cnv = document.querySelector('#complex-canvas');
-	// why can't canvas support @2x by default?
-	let d = window.devicePixelRatio || 1;
-	// dummy values
-	let width = 1;
-	let height = 1;
-	// pixels per unit on grid
-	let rscale = 50;
-	let scale = rscale * d;
-	let draw;
+const canvas = document.querySelector('#complex-canvas')
+let dp = window.devicePixelRatio || 1
+// dummy values
+let width = 1
+let height = 1
+// pixels per grid unit
+let rscale = 50
+let scale = rscale * dp
 
-	let updateSize = function() {
-		// just in case
-		d = window.devicePixelRatio || 1;
+let draw
 
-		width = parseInt(getComputedStyle(cnv).width);
-		height = parseInt(getComputedStyle(cnv).height);
-		cnv.width = width * d;
-		cnv.height = height * d;
-		scale = rscale * d;
-		draw();
-	};
-	window.onresize = updateSize;
-	let ctx = cnv.getContext('2d');
-
-	// simple wrapper for color
-	let Color = class Color {
-		constructor(r, g, b, a) {
-			this.r = Math.round(Math.min(255, Math.max(0, r)));
-			this.g = Math.round(Math.min(255, Math.max(0, g)));
-			this.b = Math.round(Math.min(255, Math.max(0, b)));
-			this.a = Math.min(1, Math.max(0, a));
-		}
-		clone(or, og, ob, oa) {
-			return new Color(or || this.r, og || this.g, ob || this.b, oa || this.a);
-		}
-		fade(a) {
-			return this.clone(null, null, null, this.a * a);
-		}
-		get rgba() {
-			return 'rgba(' + this.r + ',' + this.g + ',' + this.b + ',' + this.a + ')';
-		}
-	};
-
-	// background color
-	let background = '#091230';
-	// grid color
-	let grid = new Color(255, 255, 255, 0.5);
-	// grid color for lines at x=0 and y=0 and unit lines
-	let gridM = new Color(255, 255, 255, 1);
-	// point color
-	let point = new Color(137, 183, 255, 1);
-
-	// draws a grid with origin offset (dx|dy), rotation dr, scale ds, opacity dp and points pts
-	let drawGrid = function(dx, dy, dr, ds, dp, pts) {
-		// find origin position
-		let origx = (width * d / 2) + dx * scale;
-		let origy = (height * d / 2) + dy * scale;
-
-		// size of the grid that's going to be drawn
-		// slightly bigger than both the width and height as it's the diagonal
-		let size = Math.ceil(Math.sqrt(Math.pow(origx * 2, 2) + Math.pow(origy * 2, 2)));
-
-		// boundaries on the unit grid
-		let limitnx = (-(size / scale) - dx) * (1 / ds);
-		let limitpx = ((size / scale) - dx) * (1 / ds);
-		let limitny = (-(size / scale) - dy) * (1 / ds);
-		let limitpy = ((size / scale) - dy) * (1 / ds);
-
-		// apply opacity to colors
-		let gMC = gridM.fade(dp || 0).rgba;
-		let gC = grid.fade(dp || 0).rgba;
-		let pC = point.fade(dp || 0).rgba;
-
-		// put canvas coordinates (0|0) where the origin is and apply rest of transforms
-		ctx.translate(origx, origy);
-		ctx.scale(ds, ds);
-		ctx.rotate(dr);
-		// make sure lines are always the same width
-		ctx.lineWidth = 1 / ds;
-		if (ctx.lineWidth == Infinity) ctx.lineWidth = 0; // I wish javascript wouldn't do this
-		// grid line interval
-		let inc = 1;
-
-		if (ds < 0.1) {
-			// if scale is [quite small] make interval larger to avoid terrible lag
-			inc = Math.ceil(0.1 / ds);
-			// make sure 0 isn't skipped
-			limitnx = Math.ceil(limitnx / inc) * inc;
-			limitny = Math.ceil(limitny / inc) * inc;
-		}
-		// draw grid lines
-		for (let y = Math.ceil(limitny); y < limitpy; y += inc) {
-			if (y == 0)
-				ctx.strokeStyle = gMC;
-			else
-				ctx.strokeStyle = gC;
-			ctx.beginPath();
-			ctx.moveTo(-size * scale * inc, y * scale);
-			ctx.lineTo(size * scale * inc, y * scale);
-			ctx.stroke();
-		}
-		for (let x = Math.ceil(limitnx); x < limitpx; x += inc) {
-			ctx.beginPath();
-			if (x == 0)
-				ctx.strokeStyle = gMC;
-			else
-				ctx.strokeStyle = gC;
-			ctx.moveTo(x * scale, -size * scale * inc);
-			ctx.lineTo(x * scale, size * scale * inc);
-			ctx.stroke();
-		}
-		if (ds >= 0.1) {
-			// draw unit lines if the grid isn't too small
-
-			for (let x = Math.ceil(limitnx); x < limitpx; x += inc) {
-				ctx.strokeStyle = gMC;
-				let usize = (50 / ds) * Math.pow(2, -(Math.pow(ds * 8 * (x + dx), 2)) / size);
-				if (x + dx == 0) usize = 0;
-				ctx.beginPath();
-				ctx.moveTo(x * scale, -usize);
-				ctx.lineTo(x * scale, usize);
-				ctx.stroke();
-			}
-			for (let y = Math.ceil(limitny); y < limitpy; y += inc) {
-				ctx.strokeStyle = gMC;
-				let usize = (50 / ds) * Math.pow(2, -(Math.pow(ds * 8 * (y + dy), 2)) / size);
-				if (y + dy == 0) usize = 0;
-				ctx.beginPath();
-				ctx.moveTo(-usize, y * scale);
-				ctx.lineTo(usize, y * scale);
-				ctx.stroke();
-			}
-		}
-		// points
-		ctx.strokeStyle = pC;
-		ctx.lineWidth = 2 / ds;
-		// undo the rotation and scaling of the grid to make sure points always look the same
-		let ptsc = 0.4 * (1 / ds);
-		let ptnx = -(Math.cos(dr + Math.PI * .25) * scale) * ptsc;
-		let ptny =  (Math.sin(dr + Math.PI * .25) * scale) * ptsc;
-		let ptpx =  (Math.cos(dr + Math.PI * .25) * scale) * ptsc;
-		let ptpy = -(Math.sin(dr + Math.PI * .25) * scale) * ptsc;
-		let p2nx = -(Math.cos(dr + Math.PI * .75) * scale) * ptsc;
-		let p2ny =  (Math.sin(dr + Math.PI * .75) * scale) * ptsc;
-		let p2px =  (Math.cos(dr + Math.PI * .75) * scale) * ptsc;
-		let p2py = -(Math.sin(dr + Math.PI * .75) * scale) * ptsc;
-		// draw each point
-		for (let point of pts) {
-			if (!point.v) continue;
-			let px = point.x * scale;
-			let py = -point.y * scale;
-			ctx.beginPath();
-			ctx.moveTo(px + ptnx, py + ptny);
-			ctx.lineTo(px + ptpx, py + ptpy);
-			ctx.stroke();
-			ctx.beginPath();
-			ctx.moveTo(px + p2nx, py + p2ny);
-			ctx.lineTo(px + p2px, py + p2py);
-			ctx.stroke();
-		}
-
-		// clean up
-		ctx.setTransform(1, 0, 0, 1, 0, 0);
-	};
-
-	let grids = [];
-	draw = function() {
-		ctx.fillStyle = background;
-		ctx.fillRect(0, 0, width * d, height * d);
-
-		for (let grid of grids) {
-			grid.draw();
-		}
-	};
-	updateSize();
-
-	// animation things for grid animation
-	let animDuration = 200;
-	// expoInOut easing function
-	let animItpl = function(i) {
-		if (i==0) return 0;
-		if (i==1) return 1;
-		if ((i/=1/2) < 1) return 1/2 * Math.pow(2, 10 * (i - 1));
-		return 1/2 * (-Math.pow(2, -10 * --i) + 2);
-	};
-
-	// simple implementation for complex numbers
-	var ComplexNumber = class ComplexNumber {
-		constructor(a, b) {
-			this.real = a || 0;
-			this.imaginary = b || 0;
-		}
-		toString() {
-			let r = (this.real.toString()) || '';
-			if (r == '0') r = '';
-			let i = this.imaginary != '0' ? ((Math.abs(this.imaginary) != 1 ? Math.abs(this.imaginary) : '') + 'i') : '';
-			return (r + (r && i ? (this.imaginary >= 0 ? '+' : '-') : (i && this.imaginary < 0 ? '-' : '')) + i) || '0';
-		}
-		get absolute() {
-			return Math.sqrt(Math.pow(this.real, 2) + Math.pow(this.imaginary, 2));
-		}
-		get angle() {
-			return Math.atan2(this.imaginary, this.real);
-		}
-		add(c) {
-			return new ComplexNumber(this.real + c.real, this.imaginary + c.imaginary);
-		}
-		subtract(c) {
-			return new ComplexNumber(this.real - c.real, this.imaginary - c.imaginary);
-		}
-		multiply(c) {
-			let r = this.real * c.real - this.imaginary * c.imaginary;
-			let i = this.real * c.imaginary + this.imaginary * c.real;
-			return new ComplexNumber(r, i);
-		}
-		divide(c) {
-			let r = (this.real * c.real - this.imaginary * c.imaginary) / (c.real * c.real + c.imaginary * c.imaginary);
-			let i = (this.imaginary * c.real - this.real * c.imaginary) / (c.real * c.real + c.imaginary * c.imaginary);
-			return new ComplexNumber(r, i);
-		}
-		static parse(str) {
-			str = str.split(/(\+\-)/g);
-			let real = 0;
-			let imag = 0;
-			for (let part of str) {
-				if (part[part.length - 1] == 'i') {
-					imag += part.length == 1 ? 1 : parseFloat(part);
-				} else {
-					real += parseFloat(part);
-				}
-			}
-			return new ComplexNumber(real, imag);
-		}
-	};
-
-	// simple point
-	var GridPoint = class GridPoint {
-		constructor(r, i) {
-			this.value = new ComplexNumber(r, i);
-			this.v = true;
-		}
-		get x() {
-			return this.value.real;
-		}
-		set x(v) {
-			this.value.real = v;
-		}
-		get y() {
-			return this.value.imaginary;
-		}
-		set y(v) {
-			this.value.imaginary = v;
-		}
-	};
-
-	// a grid
-	// can be transformed and animated
-	var Grid = class Grid {
-		constructor(iv) {
-			this.state = {
-				x: 0,  // current position
-				y: 0,
-				r: 0,
-				s: 1,
-				o: iv ? 0 : 1,
-
-				// animation stuff
-				sx: 0, // start positions
-				sy: 0,
-				sr: 0,
-				ss: 1,
-				so: 1,
-				tx: 0, // target positions
-				ty: 0,
-				tr: 0,
-				ts: 1,
-				to: 1,
-				abx: 0, // a[nimation](b[egin]|e[nd])[property] timestamps
-				aex: 0,
-				aby: 0,
-				aey: 0,
-				abr: 0,
-				aer: 0,
-				abs: 0,
-				aes: 0,
-				abo: 0,
-				aeo: 0
-			};
-			this.points = [];
-			grids.push(this);
-			draw();
-			// checks whether updating is needed every animation frame
-			var loop = () => {
-				let properties = ['x', 'y', 'r', 's', 'o'];
-				let update = false;
-				for (let idx of properties) {
-					if (this.state['ab' + idx] < (this.state['ae' + idx] + 100)) {
-						update = true;
-					}
-				}
-				if (update) this.update();
-				requestAnimationFrame(loop);
-			};
-			loop();
-		}
-		// safely removes this grid
-		remove() {
-			grids.splice(grids.indexOf(this), 1);
-			draw();
-		}
-		// animates the grid to the desired properties
-		// if an argument is null, the property won't be touched
-		animate(dx, dy, dr, ds, dp, qs) {
-			let properties = {
-				x: dx,
-				y: dy,
-				r: dr,
-				s: ds,
-				o: dp
-			};
-			for (let idx in properties) {
-				let prop = properties[idx];
-				if (!prop && prop !== 0) continue;
-				this.state['ab' + idx] = Date.now();
-				this.state['ae' + idx] = Date.now() + animDuration * (qs || 1);
-				this.state['s' + idx] = this.state[idx];
-				this.state['t' + idx] = prop;
-			}
-			this.update();
-		}
-		// update all (potentially animating) properties
-		update() {
-			let now = Date.now();
-			let properties = ['x', 'y', 'r', 's', 'o'];
-			for (let idx of properties) {
-				let ab = this.state['ab' + idx];
-				let ae = this.state['ae' + idx];
-				let sv = this.state['s' + idx];
-				let ev = this.state['t' + idx];
-				let ap = Math.min(1, (now - ab) / (ae - ab));
-				let av = (animItpl(ap) * (ev - sv)) + sv;
-				this.state[idx] = av;
-			}
-			draw();
-		}
-		draw() {
-			drawGrid(this.state.x, -this.state.y, -this.state.r, this.state.s, this.state.o + 0.001, this.points);
-		}
-		addPoint(pt) {
-			if (!(pt instanceof GridPoint)) return;
-			this.points.push(pt);
-		}
-	};
+let updateSize = function () {
+  dp = window.devicePixelRatio || 1
+  const size = canvas.getBoundingClientRect()
+  canvas.width = (width = size.width) * dp
+  canvas.height = (height = size.height) * dp
+  scale = rscale * dp
+  draw()
 }
-{
-	let inputDE = document.querySelector('#input');
-	let resultDE = document.querySelector('#result');
+window.addEventListener('resize', updateSize)
 
-	let rootGrid = new Grid();
+const ctx = canvas.getContext('2d')
 
-	let currentPoint = new GridPoint();
-	rootGrid.addPoint(currentPoint);
-	let current = new ComplexNumber(0, 0);
-	let renderOutput = function() {
-		katex.render(current.toString(), resultDE);
-	};
-	// container for all temporary grids
-	let opG = [];
-	// setTimeout ID for currentPoint.v = true
-	let cpV = 0;
-	renderOutput();
-	let applyInput = function(operator, number) {
-		opG.push(new Grid(true));
-		rootGrid.animate(null, null, null, null, 0);
-		let w = opG.length - 1;
-		opG[w].animate(0, 0, 0, 1, 1);
-		opG[w].addPoint(new GridPoint(currentPoint.x, currentPoint.y));
-		// animate the current operation
-		if (operator == '+' || operator == '-') {
-			let sign = (operator == '-') ? -1 : 1;
-			opG[w].animate(sign * number.real, sign * number.imaginary, null, null, null, 3);
-			if (operator == '+')
-				current = current.add(number);
-			else
-				current = current.subtract(number);
-		} else if (operator == '*') {
-			opG[w].animate(null, null, number.angle, number.absolute, null, 3);
-			current = current.multiply(number);
-		} else if (operator == '/') {
-			let fnr = current.divide(number);
-			let scl = fnr.absolute / current.absolute;
-			if (scl == Infinity) scl = 0;
-			opG[w].animate(null, null, fnr.angle - current.angle, scl, null, 3);
-			current = fnr;
-		}
-		currentPoint.x = current.real;
-		currentPoint.y = current.imaginary;
-		currentPoint.v = false;
-		renderOutput();
-		clearTimeout(cpV);
-		cpV = setTimeout(() => {
-			currentPoint.v = true;
-			rootGrid.animate(null, null, null, null, 1);
-		}, 1000);
-		// remove the grid after a second
-		setTimeout(() => {
-			opG[w].animate(null, null, null, null, 0);
-			setTimeout(() => {
-				opG[w].remove();
-				delete opG[w];
-			}, 200);
-		}, 1000);
-	};
-
-	// reset "everything" to zero when Reset is pressed
-	document.querySelector('#resetb').addEventListener('click', function() {
-		rootGrid.animate(0, 0, 0, 1, 0);
-		current.real = 0;
-		current.imaginary = 0;
-		currentPoint.x = 0;
-		currentPoint.y = 0;
-		rootGrid.animate(0, 0, 0, 1, 1);
-		renderOutput();
-	});
-
-	let operators = ['+', '-', '*', '/'];
-	let operatorMap = {
-		'+': '+',
-		'-': '-',
-		'*': '\\cdot ',
-		'/': '\\div '
-	};
-	let currentOperator = '';
-	let currentInput = '';
-	let renderInput = function() {
-		katex.render((operatorMap[currentOperator] || currentOperator) + currentInput, inputDE);
-	};
-	renderInput();
-	document.addEventListener('keypress', function(e) {
-		if (!e.key) e.key = String.fromCharCode(e.which);
-		if (operators.indexOf(e.key) > -1) {
-			if (currentOperator && curentInput) {
-				let num = ComplexNumber.parse(currentInput);
-				applyInput(currentOperator, num);
-				currentOperator = '';
-				currentInput = '';
-			}
-			currentOperator = e.key;
-		} else if (e.key.match(/^\d$/)) {
-			if (!currentOperator) currentOperator = '+';
-			currentInput = '' + currentInput + e.key;
-		} else if (e.key == 'i') {
-			if (currentInput.indexOf('i') == -1) {
-				if (!currentOperator) currentOperator = '+';
-				currentInput = '' + currentInput + e.key;
-			}
-		}
-		renderInput();
-	});
-	document.addEventListener('keydown', function(e) {
-		if (e.which == 13 && currentInput) {
-			e.preventDefault();
-			let num = ComplexNumber.parse(currentInput);
-			applyInput(currentOperator, num);
-			currentOperator = '';
-			currentInput = '';
-		} else if (e.which == 8) {
-			e.preventDefault();
-			if (currentInput) {
-				currentInput = currentInput.substr(0, currentInput.length - 1);
-			} else {
-				currentOperator = '';
-			}
-		}
-		renderInput();
-	});
+class Color {
+  constructor (r, g, b, a) {
+    this.r = Math.round(Math.min(255, Math.max(0, r)))
+    this.g = Math.round(Math.min(255, Math.max(0, g)))
+    this.b = Math.round(Math.min(255, Math.max(0, b)))
+    this.a = Math.min(255, Math.max(0, a))
+  }
+  clone (r, g, b, a) {
+    return new Color(
+      r !== undefined ? r : this.r,
+      g !== undefined ? g : this.g,
+      b !== undefined ? b : this.b,
+      a !== undefined ? a : this.a
+    )
+  }
+  fade (a = 1) {
+    return this.clone(undefined, undefined, undefined, this.a * a)
+  }
+  get rgba () {
+    return `rgba(${this.r},${this.g},${this.b},${this.a})`
+  }
 }
+
+let colors = {
+  background: new Color(0x09, 0x12, 0x30, 1),
+  grid: new Color(0xff, 0xff, 0xff, 0.5),
+  brightGrid: new Color(0xff, 0xff, 0xff, 1),
+  point: new Color(0x89, 0xb7, 0xff, 1),
+  tempPoint: new Color(0xff, 0xb7, 0x89, 1),
+  arrow: new Color(0xff, 0x88, 0xff, 1)
+}
+
+let drawGrid = function (x, y, rotation, size, opacity, points) {
+  ctx.setTransform(1, 0, 0, 1, 0, 0)
+
+  ctx.font = `${scale / 2}px monospace`
+  ctx.textBaseline = 'bottom'
+
+  let originX = width / 2 * dp + x * scale
+  let originY = height / 2 * dp + y * scale
+
+  // size of the part of the grid that'll be drawn
+  let left = Math.floor(-originX / scale / size)
+  let top = Math.floor(-originY / scale / size)
+  let right = Math.ceil((2 * width - originX) / scale / size)
+  let bottom = Math.ceil((2 * height - originY) / scale / size)
+
+  // line length
+  let length = Math.hypot(originX, originY) / size
+
+  let grid = colors.grid.rgba
+  let brightGrid = colors.brightGrid.rgba
+
+  ctx.globalAlpha = opacity
+
+  ctx.translate(originX, originY)
+  ctx.scale(size, size)
+  ctx.rotate(rotation)
+
+  // make sure lines are always the same width
+  ctx.lineWidth = 1 / size
+
+  // grid line interval
+  let inc = 1
+
+  if (size < 0.1) {
+    inc = Math.ceil(0.1 / size)
+    // make sure 0 isn't skipped
+    left = Math.ceil(left / inc) * inc
+    top = Math.ceil(top / inc) * inc
+  }
+  // draw grid lines
+  ctx.beginPath()
+  ctx.strokeStyle = grid
+  for (let ly = top; ly < bottom; ly += inc) {
+    if (ly === 0) continue
+    ctx.moveTo(-length, ly * scale)
+    ctx.lineTo(length, ly * scale)
+  }
+  for (let lx = left; lx < right; lx += inc) {
+    if (lx === 0) continue
+    ctx.moveTo(lx * scale, -length)
+    ctx.lineTo(lx * scale, length)
+  }
+  ctx.stroke()
+
+  // draw bright origin lines
+  ctx.lineWidth *= 2
+  ctx.beginPath()
+  ctx.strokeStyle = brightGrid
+  ctx.moveTo(-length, 0)
+  ctx.lineTo(length, 0)
+  ctx.moveTo(0, -length)
+  ctx.lineTo(0, length)
+  ctx.stroke()
+
+  ctx.globalAlpha = 1
+  ctx.lineWidth = 2
+
+  // points
+  let pointScale = 0.4
+  for (let point of points.values()) {
+    if (!point.visible) continue
+    ctx.strokeStyle = (point.temp ? colors.tempPoint : colors.point).rgba
+    let px = point.x * scale
+    let py = -point.y * scale
+    ctx.save()
+    ctx.translate(px, py)
+    ctx.rotate(-rotation)
+    ctx.scale(1 / size, 1 / size)
+    ctx.beginPath()
+    ctx.moveTo(-scale * pointScale, -scale * pointScale)
+    ctx.lineTo(scale * pointScale, scale * pointScale)
+    ctx.moveTo(-scale * pointScale, scale * pointScale)
+    ctx.lineTo(scale * pointScale, -scale * pointScale)
+    ctx.stroke()
+    if (point.named) {
+      ctx.fillStyle = '#fff'
+      ctx.fillText(point.value.toString(), 0, 0)
+    }
+    ctx.restore()
+  }
+}
+
+let grids = new Set()
+draw = function () {
+  ctx.setTransform(1, 0, 0, 1, 0, 0)
+  ctx.clearRect(0, 0, canvas.width, canvas.height)
+  ctx.fillStyle = colors.background.rgba
+  ctx.fillRect(0, 0, width * dp, height * dp)
+
+  for (let grid of grids.values()) {
+    grid.draw()
+  }
+}
+updateSize()
+
+class GridPoint {
+  constructor (r, i) {
+    this.value = new ComplexNumber(r, i)
+    this.visible = true
+    this.temp = false
+    this.named = false
+  }
+  get x () { return this.value.real }
+  get y () { return this.value.imag }
+  set x (v) { this.value.real = v }
+  set y (v) { this.value.imag = v }
+
+  static temp () {
+    let p = new GridPoint()
+    p.temp = true
+    return p
+  }
+}
+
+class Arrow {
+  constructor (start, end) {
+    this.start = start
+    this.end = end
+    this.progress = 0
+  }
+
+  render () {
+    ctx.setTransform(1, 0, 0, 1, 0, 0)
+    ctx.translate(width / 2 * dp, height / 2 * dp)
+    ctx.scale(scale, scale)
+    ctx.translate(this.end.real, -this.end.imag)
+    let len = Math.hypot(this.end.imag - this.start.imag, this.end.real - this.start.real)
+    let angle = Math.atan2(this.end.imag - this.start.imag, this.end.real - this.start.real)
+    ctx.rotate(-angle)
+    ctx.lineWidth = 3 / scale
+    ctx.strokeStyle = ctx.fillStyle = colors.arrow.rgba
+    ctx.beginPath()
+    ctx.moveTo(-len * (1 - this.progress), 0)
+    ctx.lineTo(0, 0)
+    ctx.stroke()
+    if (this.progress > 0.8) {
+      ctx.globalAlpha = 1 - (1 - this.progress) / 0.2
+      ctx.beginPath()
+      ctx.moveTo(-len, 0)
+      ctx.lineTo(0, 0)
+      ctx.stroke()
+      ctx.globalAlpha = 1
+    }
+    ctx.beginPath()
+    ctx.moveTo(0, 0)
+    ctx.lineTo(-0.4, -0.2)
+    ctx.lineTo(-0.3, 0)
+    ctx.lineTo(-0.4, 0.2)
+    ctx.closePath()
+    ctx.fill()
+  }
+}
+
+let easeInOutCubic = function (t) {
+  return t < 0.5 ? (4 * t * t * t) : ((t - 1) * (2 * t - 2) * (2 * t - 2) + 1)
+}
+
+class AnimatedValue {
+  constructor (value) {
+    this.target = value
+    this.previous = value
+    this.value = value
+    this.startTime = 0
+    this.endTime = 0
+
+    this.isLooping = false
+    this.boundLoop = () => this.loop()
+    this.onupdate = () => {}
+    this.onend = () => {}
+  }
+  animate (value, time) {
+    this.previous = this.value
+    this.target = value
+    this.startTime = Date.now()
+    this.endTime = Date.now() + time * 1000
+    if (!this.isLooping) {
+      this.isLooping = true
+      this.loop()
+    }
+  }
+  loop () {
+    let now = Date.now()
+    let easing = (now - this.startTime) / (this.endTime - this.startTime)
+    easing = easeInOutCubic(easing)
+    if (now >= this.endTime) {
+      this.isLooping = false
+      this.value = this.target
+      this.onupdate(this)
+      this.onend(this)
+    } else {
+      if (this.isLooping) window.requestAnimationFrame(this.boundLoop)
+      if (Array.isArray(this.value)) {
+        for (let i = 0; i < this.value.length; i++) {
+          this.value[i] = this.previous[i] + easing * (this.target[i] - this.previous[i])
+        }
+      } else {
+        this.value = this.previous + easing * (this.target - this.previous)
+      }
+      this.onupdate(this)
+    }
+  }
+}
+
+class Grid {
+  constructor () {
+    this.x = 0
+    this.y = 0
+    this.scale = 1
+    this.rotate = 0
+    this.opacity = 1
+    this.points = new Set()
+    grids.add(this)
+  }
+  destroy () {
+    grids.delete(this)
+    draw()
+  }
+  draw () {
+    drawGrid(this.x, -this.y, -this.rotate, this.scale, this.opacity, this.points)
+  }
+}
+
+const rootGrid = new Grid()
+const currentPoint = new GridPoint()
+currentPoint.named = true
+const opPoint = new GridPoint()
+opPoint.visible = false
+opPoint.named = true
+opPoint.temp = true
+rootGrid.points.add(currentPoint)
+rootGrid.points.add(opPoint)
+
+const integerTolerance = 0.2
+
+const projectPoint = function (x, y) {
+  let point = [x - canvas.offsetWidth / 2, -y + canvas.offsetHeight / 2]
+  point = point.map(x => x / rscale)
+  let integer = point.map(x => Math.round(x))
+  if (Math.abs(point[0] - integer[0]) < integerTolerance && Math.abs(point[1] - integer[1]) < integerTolerance) {
+    point = integer
+  }
+  return point
+}
+
+let isDown = false
+canvas.addEventListener('mousedown', e => {
+  let point = projectPoint(e.offsetX, e.offsetY)
+  opPoint.x = point[0]
+  opPoint.y = point[1]
+  opPoint.visible = true
+  isDown = true
+  draw()
+})
+
+window.addEventListener('mousemove', e => {
+  if (!isDown) return
+  let point = projectPoint(e.offsetX, e.offsetY)
+  opPoint.x = point[0]
+  opPoint.y = point[1]
+  draw()
+})
+
+window.addEventListener('mouseup', e => {
+  if (!isDown) return
+  isDown = false
+})
+
+document.querySelector('#add-btn').addEventListener('click', () => {
+  if (!opPoint.visible) return
+  rootGrid.points.delete(currentPoint)
+  rootGrid.opacity = 0
+  let opGrid = new Grid()
+  opGrid.points.add(currentPoint)
+  opGrid.points.add(GridPoint.temp())
+  let opArrow = new Arrow(new ComplexNumber(0, 0), opPoint.value)
+  let anim = new AnimatedValue([0, 0, 0])
+  anim.onupdate = () => {
+    opGrid.x = anim.value[0]
+    opGrid.y = anim.value[1]
+    draw()
+    opArrow.progress = anim.value[2]
+    opArrow.render()
+  }
+  anim.onend = () => {
+    currentPoint.value = currentPoint.value.add(opPoint.value)
+    opPoint.visible = false
+    rootGrid.opacity = 1
+    rootGrid.points.add(currentPoint)
+    rootGrid.points.delete(opPoint)
+    rootGrid.points.add(opPoint)
+    opGrid.destroy()
+    draw()
+  }
+  anim.animate([opPoint.x, opPoint.y, 1], 2)
+})
+
+document.querySelector('#sub-btn').addEventListener('click', () => {
+  if (!opPoint.visible) return
+  let opGrid = new Grid()
+  opGrid.points.add(GridPoint.temp())
+  opGrid.opacity = 0
+  let opArrow = new Arrow(opPoint.value, new ComplexNumber(0, 0))
+  let anim = new AnimatedValue([0, 0, 0])
+  anim.onupdate = () => {
+    rootGrid.x = anim.value[0]
+    rootGrid.y = anim.value[1]
+    draw()
+    opArrow.progress = anim.value[2]
+    opArrow.render()
+  }
+  anim.onend = () => {
+    currentPoint.value = currentPoint.value.sub(opPoint.value)
+    opPoint.visible = false
+    rootGrid.x = rootGrid.y = 0
+    opGrid.destroy()
+    draw()
+  }
+  anim.animate([-opPoint.x, -opPoint.y, 1], 2)
+})
+
+document.querySelector('#mul-btn').addEventListener('click', () => {
+  if (!opPoint.visible) return
+  let opGrid = new Grid()
+  opGrid.opacity = 0
+  let tpoint = GridPoint.temp()
+  tpoint.x = 1
+  opGrid.points.add(opPoint)
+  rootGrid.points.delete(opPoint)
+  rootGrid.points.add(tpoint)
+
+  let opArrow = new Arrow(new ComplexNumber(1, 0), opPoint.value)
+
+  let anim = new AnimatedValue([0, 1, 0])
+  anim.onupdate = () => {
+    rootGrid.rotate = anim.value[0]
+    rootGrid.scale = anim.value[1]
+    draw()
+    opArrow.progress = anim.value[2]
+    opArrow.render()
+  }
+
+  anim.onend = () => {
+    currentPoint.value = currentPoint.value.mul(opPoint.value)
+    rootGrid.points.delete(tpoint)
+    rootGrid.points.add(opPoint)
+    opPoint.visible = false
+    rootGrid.rotate = 0
+    rootGrid.scale = 1
+    opGrid.destroy()
+    draw()
+  }
+
+  let rot = Math.atan2(opPoint.y, opPoint.x)
+  let scale = Math.hypot(opPoint.x, opPoint.y)
+
+  anim.animate([rot, scale, 1], 2)
+})
+
+document.querySelector('#div-btn').addEventListener('click', () => {
+  if (!opPoint.visible) return
+  let opGrid = new Grid()
+  opGrid.opacity = 0
+  let tpoint = GridPoint.temp()
+  tpoint.x = 1
+  opGrid.points.add(tpoint)
+
+  let opArrow = new Arrow(opPoint.value, new ComplexNumber(1, 0))
+
+  let anim = new AnimatedValue([0, 1, 0])
+  anim.onupdate = () => {
+    rootGrid.rotate = anim.value[0]
+    rootGrid.scale = anim.value[1]
+    draw()
+    opArrow.progress = anim.value[2]
+    opArrow.render()
+  }
+
+  anim.onend = () => {
+    currentPoint.value = currentPoint.value.div(opPoint.value)
+    opPoint.visible = false
+    rootGrid.rotate = 0
+    rootGrid.scale = 1
+    opGrid.destroy()
+    draw()
+  }
+
+  let rot = Math.atan2(opPoint.y, opPoint.x)
+  let scale = Math.hypot(opPoint.x, opPoint.y)
+
+  if (opPoint.x === 0 && opPoint.y === 0) {
+    rot = Math.PI * 4
+    scale = 0
+    opGrid.destroy()
+  }
+
+  anim.animate([-rot, 1 / scale, 1], 2)
+})
+
+let xscl = rscale
+document.querySelector('#zoomi-btn').addEventListener('click', () => {
+  let anim = new AnimatedValue(rscale)
+  anim.onupdate = () => {
+    rscale = anim.value
+    updateSize()
+    draw()
+  }
+  xscl *= 1.25
+  anim.animate([xscl], 0.5)
+})
+
+document.querySelector('#zoomo-btn').addEventListener('click', () => {
+  let anim = new AnimatedValue(rscale)
+  anim.onupdate = () => {
+    rscale = anim.value
+    updateSize()
+    draw()
+  }
+  xscl /= 1.25
+  anim.animate([xscl], 0.5)
+})
+
+draw()

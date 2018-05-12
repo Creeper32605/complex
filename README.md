@@ -7,7 +7,7 @@ Currently supports addition, subtraction, multiplication and division.
 
 ## Usage
 All operations will be applied to the current number which is displayed as a blue cross on the grid.
-To apply an operation, click on the grid to select an operand, and then click an operation.
+To apply an operation, click on the grid to select an operand, and click an operation.
 
 ## Browser Support
 Supports all browsers that support ES2015.

@@ -308,13 +308,17 @@ const projectPoint = function (x, y) {
 }
 
 let isDown = false
-canvas.addEventListener('mousedown', e => {
+let mouseDownOnCanvas = e => {
   let point = projectPoint(e.offsetX, e.offsetY)
   opPoint.x = point[0]
   opPoint.y = point[1]
   opPoint.visible = true
   isDown = true
   draw()
+}
+
+canvas.addEventListener('mousedown', e => {
+  mouseDownOnCanvas(e)
 })
 
 window.addEventListener('mousemove', e => {
@@ -325,13 +329,28 @@ window.addEventListener('mousemove', e => {
   draw()
 })
 
+let clickQSOnMouseUp = null
 window.addEventListener('mouseup', e => {
   if (!isDown) return
   isDown = false
+
+  if (clickQSOnMouseUp) {
+    document.querySelector(clickQSOnMouseUp).click()
+    clickQSOnMouseUp = null
+  }
 })
 
-document.querySelector('#add-btn').addEventListener('click', () => {
-  if (!opPoint.visible) return
+let chooseOpPoint = (e, qs) => {
+  let canvasRect = canvas.getBoundingClientRect()
+  mouseDownOnCanvas({
+    offsetX: e.clientX - canvasRect.left,
+    offsetY: e.clientY - canvasRect.top
+  })
+  clickQSOnMouseUp = qs
+}
+
+document.querySelector('#add-btn').addEventListener('click', e => {
+  if (!opPoint.visible) return chooseOpPoint(e, '#add-btn')
   rootGrid.points.delete(currentPoint)
   rootGrid.opacity = 0
   let opGrid = new Grid()
@@ -359,8 +378,8 @@ document.querySelector('#add-btn').addEventListener('click', () => {
   anim.animate([opPoint.x, opPoint.y, 1], 2)
 })
 
-document.querySelector('#sub-btn').addEventListener('click', () => {
-  if (!opPoint.visible) return
+document.querySelector('#sub-btn').addEventListener('click', e => {
+  if (!opPoint.visible) return chooseOpPoint(e, '#sub-btn')
   let opGrid = new Grid()
   opGrid.points.add(GridPoint.temp())
   opGrid.opacity = 0
@@ -383,8 +402,8 @@ document.querySelector('#sub-btn').addEventListener('click', () => {
   anim.animate([-opPoint.x, -opPoint.y, 1], 2)
 })
 
-document.querySelector('#mul-btn').addEventListener('click', () => {
-  if (!opPoint.visible) return
+document.querySelector('#mul-btn').addEventListener('click', e => {
+  if (!opPoint.visible) return chooseOpPoint(e, '#mul-btn')
   let opGrid = new Grid()
   opGrid.opacity = 0
   let tpoint = GridPoint.temp()
@@ -421,8 +440,8 @@ document.querySelector('#mul-btn').addEventListener('click', () => {
   anim.animate([rot, scale, 1], 2)
 })
 
-document.querySelector('#div-btn').addEventListener('click', () => {
-  if (!opPoint.visible) return
+document.querySelector('#div-btn').addEventListener('click', e => {
+  if (!opPoint.visible) return chooseOpPoint(e, '#div-btn')
   let opGrid = new Grid()
   opGrid.opacity = 0
   let tpoint = GridPoint.temp()
